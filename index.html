@@ -295,7 +295,7 @@
     const t0 = performance.now();
 
     try {
-      const res = await fetch("/chat/stream", {
+      const res = await fetch("https://ember-backend-8ja1.onrender.com/chat/stream", {
         method: "POST",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify(requestBody)
@@ -455,7 +455,7 @@
     addDebugStep("NS Request", { endpoint: "/chat", body: requestBody });
 
     try {
-      const res = await fetch("/chat", {
+      const res = await fetch("https://ember-backend-8ja1.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify(requestBody)
@@ -473,7 +473,7 @@
 
   async function openSettings() {
     try {
-      const res = await fetch('/settings');
+      const res = await fetch('https://ember-backend-8ja1.onrender.com/settings');
       if (!res.ok) throw new Error('Failed to load settings');
       const cur = await res.json();
       document.getElementById('setTemp').value = cur.temperature ?? 0.5;
@@ -502,7 +502,7 @@
       presence_penalty: parseFloat(document.getElementById('setPresPen').value)
     };
     try {
-      const res = await fetch('/settings', {
+      const res = await fetch('https://ember-backend-8ja1.onrender.com/settings', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
