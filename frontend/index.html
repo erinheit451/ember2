@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Ember - Fast UI</title>
+  <style>
+    :root {
+      --black:#000; --white:#fff;
+      --gray-50:#fafafa; --gray-100:#f4f4f5; --gray-200:#e4e4e7; --gray-300:#d4d4d8;
+      --gray-400:#a1a1aa; --gray-500:#71717a; --gray-600:#52525b; --gray-700:#3f3f46;
+      --gray-800:#27272a; --gray-900:#18181b;
+      --accent-green:#10b981; --accent-amber:#f59e0b; --accent-red:#ef4444;
+      --font-sans:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;
+      --font-mono:'SF Mono','Consolas','Monaco',monospace;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font-sans);background:var(--white);color:var(--gray-900);
+      line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;height:100vh;display:flex;flex-direction:column}
+    .header{height:48px;border-bottom:1px solid var(--gray-200);background:var(--white);
+      display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
+    .header-left{display:flex;align-items:center;gap:24px}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.02em}
+    .parallel-mark{width:24px;height:24px;position:relative;display:flex;align-items:center;justify-content:center}
+    .parallel-mark::before,.parallel-mark::after{content:'';position:absolute;width:3px;height:18px;background:var(--black);border-radius:1px}
+    .parallel-mark::before{transform:translateX(-3px)} .parallel-mark::after{transform:translateX(3px)}
+    .workspace-selector{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--gray-50);
+      border:1px solid var(--gray-200);border-radius:6px;font-size:13px;cursor:pointer;transition:all .15s}
+    .workspace-selector:hover{background:var(--gray-100);border-color:var(--gray-300)}
+    .header-right{display:flex;align-items:center;gap:16px}
+    .header-button{padding:6px;background:transparent;border:none;color:var(--gray-600);cursor:pointer;border-radius:6px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+    .header-button:hover{background:var(--gray-100);color:var(--gray-900)}
+    .connection-status{width:6px;height:6px;background:var(--accent-green);border-radius:50%;margin-right:8px}
+
+    .container{flex:1;display:flex;overflow:hidden}
+    .chat-panel{flex:1;display:flex;flex-direction:column;max-width:860px;border-right:1px solid var(--gray-200)}
+    .api-selector{height:56px;border-bottom:1px solid var(--gray-200);padding:0 24px;display:flex;align-items:center;justify-content:space-between;background:var(--gray-50)}
+    .parallel-info{display:flex;align-items:center;gap:12px}
+    .parallel-avatar{width:32px;height:32px;background:var(--gray-900);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--white);font-size:14px;letter-spacing:-.02em}
+    .parallel-details{display:flex;flex-direction:column}
+    .parallel-details h2{font-size:14px;font-weight:600;letter-spacing:-.01em}
+    .parallel-details p{font-size:12px;color:var(--gray-500);margin-top:-2px}
+    #performanceMetrics{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--white);
+      border:1px solid var(--gray-200);border-radius:6px;font-family:var(--font-mono);font-size:12px;color:var(--gray-600)}
+    #lastTiming{font-family:var(--font-mono)}
+
+    .messages{flex:1;overflow-y:auto;padding:32px 24px;background:var(--white)}
+    .messages::-webkit-scrollbar{width:8px}
+    .messages::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:4px;border:2px solid var(--white)}
+    .message{margin-bottom:24px;display:flex;gap:12px}
+    .message-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0;letter-spacing:-.02em}
+    .message.user .message-avatar{background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200)}
+    .message.ai .message-avatar{background:var(--gray-900);color:var(--white)}
+    .message-content-wrapper{flex:1;min-width:0}
+    .message-content{font-size:14px;line-height:1.6;color:var(--gray-700);word-wrap:break-word}
+    .message.user .message-content{color:var(--gray-900)}
+    .message-controls{display:flex;gap:8px;margin-top:4px;align-items:center}
+    .star-btn{background:none;border:none;cursor:pointer;font-size:16px;padding:4px;border-radius:4px;transition:background-color .2s;color:var(--gray-400)}
+    .star-btn:hover{background-color:var(--gray-100)}
+    .star-btn.starred{color:var(--accent-amber)}
+    .timing{font-size:11px;color:var(--gray-500);margin-top:4px;font-family:var(--font-mono)}
+
+    .typing{display:none;padding:0 24px 24px 24px;flex-direction:column;gap:8px}
+    .typing.show{display:flex}
+    .typing-bar{height:2px;background:var(--gray-100);border-radius:1px;overflow:hidden;position:relative;margin-left:44px}
+    .typing-progress{height:100%;background:var(--gray-400);border-radius:1px;animation:typing-slide 1.5s ease-in-out infinite}
+    @keyframes typing-slide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+
+    .input-area{border-top:1px solid var(--gray-200);padding:16px 24px 20px;background:var(--gray-50);display:flex;gap:12px;align-items:flex-end}
+    .message-input{flex:1;background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:10px 14px;font-size:14px;outline:none;resize:none;font-family:inherit;line-height:1.5;color:var(--gray-900);transition:all .15s}
+    .message-input:focus{border-color:var(--gray-400);box-shadow:0 0 0 3px rgba(0,0,0,.03)}
+    .message-input::placeholder{color:var(--gray-400)}
+    .send-btn{padding:10px 16px;background:var(--gray-900);color:var(--white);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .send-btn:hover:not(:disabled){background:var(--black);transform:translateY(-1px)}
+    .send-btn:disabled{opacity:.3;cursor:not-allowed}
+
+    .debug-panel{width:420px;background:var(--gray-50);display:flex;flex-direction:column;overflow:hidden}
+    .debug-header{height:56px;padding:0 20px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;background:var(--white)}
+    .debug-title{font-size:13px;font-weight:600;color:var(--gray-900);font-family:var(--font-mono)}
+    .debug-controls{display:flex;gap:8px}
+    .debug-button{padding:4px 8px;background:transparent;border:1px solid var(--gray-200);border-radius:4px;font-size:11px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;color:var(--gray-600)}
+    .debug-button:hover{background:var(--gray-100);border-color:var(--gray-300);color:var(--gray-900)}
+    #debugPanel{flex:1;overflow-y:auto;padding:16px}
+    #debugSteps{display:flex;flex-direction:column;gap:12px}
+    .debug-step{background:var(--white);border:1px solid var(--gray-200);border-radius:6px;overflow:hidden}
+    .debug-step-header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid var(--gray-200)}
+    .debug-step-header:hover{background:var(--gray-50)}
+    .debug-step h4{margin:0;font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--gray-900)}
+    .debug-step-toggle{font-size:12px;color:var(--gray-500)}
+    .debug-step-content{padding:12px;display:block;background:var(--gray-50)}
+    .debug-step-content.collapsed{display:none}
+    .debug-step pre{margin:0;font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--gray-600);white-space:pre-wrap;word-wrap:break-word}
+
+    .footer{height:32px;border-top:1px solid var(--gray-200);background:var(--gray-50);display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:11px;color:var(--gray-500);flex-shrink:0}
+    .footer-left{display:flex;align-items:center;gap:16px}
+    .footer-right{display:flex;align-items:center;gap:12px;font-family:var(--font-mono)}
+    .footer-link{color:var(--gray-500);text-decoration:none;transition:color .15s}
+    .footer-link:hover{color:var(--gray-900)}
+    .status-dot{width:6px;height:6px;background:var(--accent-green);border-radius:50%}
+    @media (max-width:768px){.debug-panel{display:none}.chat-panel{max-width:100%}}
+  </style>
+</head>
+<body>
+<header class="header">
+  <div class="header-left">
+    <div class="logo"><div class="parallel-mark"></div><span>Parallel</span></div>
+    <div class="workspace-selector"><span>Development</span><span>▼</span></div>
+  </div>
+  <div class="header-right">
+    <div class="connection-status"></div>
+    <button class="header-button" title="Settings" onclick="openSettings()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 1.54l4.24 4.24M21 12h-6m-6 0H3"/>
+      </svg>
+    </button>
+    <button class="header-button" title="Non-stream test" id="nonStreamBtn">NS</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="chat-panel">
+    <div class="api-selector">
+      <div class="parallel-info">
+        <div class="parallel-avatar">E</div>
+        <div class="parallel-details">
+          <h2>Ember</h2>
+          <p>Optimized Streaming API</p>
+        </div>
+      </div>
+      <div id="performanceMetrics"><span id="lastTiming">Ready</span></div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="message ai">
+        <div class="message-avatar">E</div>
+        <div class="message-content-wrapper">
+          <div class="message-content">
+            Hi! I'm Ember, your optimized parallel AI. Start chatting to experience ultra-fast streaming responses!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="typing" id="typing">
+      <div class="typing-bar"><div class="typing-progress"></div></div>
+    </div>
+
+    <div class="input-area">
+      <input type="text" class="message-input" id="messageInput" placeholder="Type your message..." />
+      <button class="send-btn" id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <div class="debug-panel">
+    <div class="debug-header">
+      <div class="debug-title">PROCESSING PIPELINE</div>
+      <div class="debug-controls">
+        <button class="debug-button" id="viewPromptBtn" disabled>View Prompt</button>
+        <button class="debug-button" id="diffPromptBtn" disabled>Diff vs Previous</button>
+        <button class="debug-button" onclick="clearDebugPanel()">Clear</button>
+      </div>
+    </div>
+    <div id="debugPanel">
+      <div id="debugSteps">
+        <div class="debug-step">
+          <div class="debug-step-header"><h4>Waiting for message...</h4></div>
+          <div class="debug-step-content"><pre>Pipeline steps will appear here during processing</pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-left">
+    <a href="#" class="footer-link">Docs</a>
+    <a href="#" class="footer-link">API Status</a>
+    <a href="#" class="footer-link">Shortcuts (⌘K)</a>
+  </div>
+  <div class="footer-right">
+    <div class="footer-status"><span class="status-dot"></span><span>All systems operational</span></div>
+    <span>v0.1.0-alpha</span>
+  </div>
+</footer>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const messagesEl = $("#messages");
+  const typingEl = $("#typing");
+  const inputEl = $("#messageInput");
+  const sendBtn = $("#sendBtn");
+  const nsBtn = $("#nonStreamBtn");
+  const perfEl = $("#lastTiming");
+
+  // Enter to send
+  inputEl.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendStream(); }
+  });
+  sendBtn.onclick = sendStream;
+  nsBtn.onclick = sendNonStream;
+
+  function clearDebugPanel() {
+    $("#debugSteps").innerHTML = "";
+  }
+  function addDebugStep(title, obj) {
+    const wrap = document.createElement("div");
+    wrap.className = "debug-step";
+    wrap.innerHTML = `
+      <div class="debug-step-header">
+        <h4>${title}</h4><span class="debug-step-toggle">▼</span>
+      </div>
+      <div class="debug-step-content"><pre>${typeof obj === "string" ? obj : JSON.stringify(obj, null, 2)}</pre></div>
+    `;
+    const header = wrap.querySelector(".debug-step-header");
+    const content = wrap.querySelector(".debug-step-content");
+    const toggle = wrap.querySelector(".debug-step-toggle");
+    header.addEventListener("click", () => {
+      content.classList.toggle("collapsed");
+      toggle.textContent = content.classList.contains("collapsed") ? "▶" : "▼";
+    });
+    $("#debugSteps").appendChild(wrap);
+    $("#debugPanel").scrollTop = $("#debugPanel").scrollHeight;
+  }
+
+  function addMessage(content, sender, timing='') {
+    const div = document.createElement("div");
+    div.className = `message ${sender}`;
+    div.innerHTML = `
+      <div class="message-avatar">${sender === "user" ? "U" : "E"}</div>
+      <div class="message-content-wrapper">
+        <div class="message-content">${escapeHtml(content)}</div>
+        ${timing ? `<div class="timing">${timing}</div>` : ""}
+      </div>
+    `;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  function createStreamingMessage() {
+    const div = document.createElement("div");
+    div.className = "message ai";
+    div.innerHTML = `
+      <div class="message-avatar">E</div>
+      <div class="message-content-wrapper">
+        <div class="message-content"></div>
+      </div>
+    `;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+  function updateStreamingMessage(node, txt) {
+    node.querySelector(".message-content").textContent = txt;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  function finalizeStreamingMessage(node, txt, timing) {
+    updateStreamingMessage(node, txt);
+    if (timing) {
+      const t = document.createElement("div");
+      t.className = "timing";
+      t.textContent = timing;
+      node.querySelector(".message-content-wrapper").appendChild(t);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Persistent session IDs - generate once and reuse
+  let currentUserId = crypto.randomUUID();
+  let currentThreadId = crypto.randomUUID();
+
+  async function sendStream() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    inputEl.value = "";
+    addMessage(text, "user");
+    typingEl.classList.add("show");
+    sendBtn.disabled = true;
+
+    clearDebugPanel();
+    const requestBody = {
+      text,
+      user_id: currentUserId,
+      thread_id: currentThreadId
+    };
+    addDebugStep("1) Request", { endpoint:"/chat/stream", body: requestBody });
+
+    let collected = "";
+    let firstTokenMs = null;
+    let chunkCount = 0;
+    const t0 = performance.now();
+
+    try {
+      const res = await fetch("/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(requestBody)
+      });
+      if (!res.ok) {
+        addDebugStep("HTTP Error", { status: res.status, body: await res.text() });
+        addMessage(`Error: HTTP ${res.status}`, "ai");
+        return;
+      }
+
+      const aiNode = createStreamingMessage();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // split into SSE frames
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+
+        for (const frame of frames) {
+          const line = frame.trim();
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (!payload) continue;
+
+          try {
+            const evt = JSON.parse(payload);
+
+            if (evt.type === "start") {
+              addDebugStep("2) Start", { model: evt.model });
+
+              // Display debug events from start
+              if (evt.debug_events) {
+                for (const dbgEvt of evt.debug_events) {
+                  addDebugStep(`🔹 ${dbgEvt.step} — ${dbgEvt.label}`, dbgEvt.data, true);
+                }
+              }
+
+              // Display trace info
+              if (evt.debug?.trace) {
+                addDebugStep('Trace Started', evt.debug.trace, true);
+              }
+
+              // Display live settings
+              if (evt.debug?.live_settings) {
+                addDebugStep('Live Settings', evt.debug.live_settings, true);
+              }
+
+              // Display prompt stats
+              if (evt.debug?.prompt_stats) {
+                addDebugStep('Prompt Stats', evt.debug.prompt_stats, true);
+              }
+
+            } else if (evt.type === "content") {
+              if (firstTokenMs === null) firstTokenMs = Math.round(performance.now() - t0);
+              chunkCount++;
+              collected += evt.chunk;
+              updateStreamingMessage(aiNode, collected);
+
+            } else if (evt.type === "complete") {
+              const total = Math.round(performance.now() - t0);
+              const first = firstTokenMs ?? "N/A";
+              finalizeStreamingMessage(aiNode, collected, `${total}ms total (first token: ${first}ms, chunks: ${chunkCount})`);
+              perfEl.textContent = `Total: ${total}ms | First: ${first}ms | Chunks: ${chunkCount}`;
+
+              // Display debug events from completion (including new ones like first_token, complete)
+              if (evt.debug_events) {
+                for (const dbgEvt of evt.debug_events) {
+                  // Only show events we haven't shown yet (latency, complete)
+                  if (dbgEvt.step === "latency" || dbgEvt.step === "complete") {
+                    addDebugStep(`🔹 ${dbgEvt.step} — ${dbgEvt.label}`, dbgEvt.data, true);
+                  }
+                }
+              }
+
+              // Handle prompt inspection
+              if (evt.prompt) {
+                prevPrompt = lastPrompt;       // rotate history
+                lastPrompt = evt.prompt;
+                document.getElementById('viewPromptBtn').disabled = false;
+                document.getElementById('diffPromptBtn').disabled = !prevPrompt ? true : false;
+                addDebugStep('📄 Prompt Digest', evt.prompt.digest, true);
+              }
+
+              // MOMENTUM — 2–3 Sparks
+              if (evt.debug?.momentum) {
+                const mom = evt.debug.momentum;
+                const ideas = (mom.ideas || []).map((it, idx) => {
+                  const spark = it.draft || it.seed || "(no spark)";
+                  const angle = it.angle ? ` [${it.angle}]` : "";
+                  const q = it.question ? `\n  question: ${it.question}` : "";
+                  return `#${idx + 1}${angle}\n  spark: ${spark}\n  why: ${it.why}${q}`;
+                }).join("\n\n");
+
+                const momDebug = {
+                  model: mom.debug?.model || 'unknown',
+                  ms: mom.debug?.ms || null,
+                  parse_error: mom.debug?.parse_error || null,
+                  raw_preview: mom.debug?.raw_output_preview || ''
+                };
+
+                addDebugStep('✨ Momentum (sparks)', ideas || '(none)');
+                addDebugStep('Momentum debug', momDebug, true);
+              }
+
+              // Display full debug trace
+              if (evt.debug?.attachments?.system_prompt_preview) {
+                addDebugStep('System Prompt (preview)', evt.debug.attachments.system_prompt_preview);
+              }
+              if (evt.debug?.attachments?.messages_preview) {
+                addDebugStep('Messages (preview)', evt.debug.attachments.messages_preview, true);
+              }
+              if (evt.debug?.attachments?.final_text_preview) {
+                addDebugStep('Final Text (preview)', evt.debug.attachments.final_text_preview);
+              }
+              if (Array.isArray(evt.debug?.steps)) {
+                addDebugStep('Steps', evt.debug.steps, true);
+              }
+              if (evt.meta?.timing_ms) {
+                addDebugStep('Timing', evt.meta.timing_ms, true);
+              }
+
+              addDebugStep("3) Complete", { total_ms: total, first_token_ms: first, chunks: chunkCount });
+            }
+          } catch (e) {
+            // non-JSON or partial frames get ignored
+          }
+        }
+      }
+    } catch (e) {
+      addMessage("Error: " + String(e), "ai");
+      addDebugStep("ERROR", String(e));
+    } finally {
+      typingEl.classList.remove("show");
+      sendBtn.disabled = false;
+    }
+  }
+
+  async function sendNonStream() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    inputEl.value = "";
+    addMessage(text, "user");
+
+    const t0 = performance.now();
+    clearDebugPanel();
+    const requestBody = {
+      text,
+      user_id: currentUserId,
+      thread_id: currentThreadId
+    };
+    addDebugStep("NS Request", { endpoint: "/chat", body: requestBody });
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(requestBody)
+      });
+      const data = await res.json();
+      const dt = Math.round(performance.now() - t0);
+      addMessage(data.reply || "(no reply)", "ai", `${dt}ms total (non-stream)`);
+      addDebugStep("NS Debug", data.debug || {});
+      perfEl.textContent = `Total: ${dt}ms (non-stream)`;
+    } catch (e) {
+      addMessage("Error: " + String(e), "ai");
+      addDebugStep("NS ERROR", String(e));
+    }
+  }
+
+  async function openSettings() {
+    try {
+      const res = await fetch('/settings');
+      if (!res.ok) throw new Error('Failed to load settings');
+      const cur = await res.json();
+      document.getElementById('setTemp').value = cur.temperature ?? 0.5;
+      document.getElementById('setMaxTok').value = cur.max_tokens ?? 120;
+      document.getElementById('setHist').value = cur.history_limit ?? 6;
+      document.getElementById('setFullHist').checked = !!cur.use_full_history;
+      document.getElementById('setFreqPen').value = cur.frequency_penalty ?? 0.3;
+      document.getElementById('setPresPen').value = cur.presence_penalty ?? 0.1;
+      document.getElementById('settingsModal').style.display = 'flex';
+    } catch (e) {
+      addDebugStep('Settings Load Error', String(e));
+    }
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+  }
+
+  async function saveSettings() {
+    const payload = {
+      temperature: parseFloat(document.getElementById('setTemp').value),
+      max_tokens: parseInt(document.getElementById('setMaxTok').value, 10),
+      history_limit: parseInt(document.getElementById('setHist').value, 10),
+      use_full_history: document.getElementById('setFullHist').checked,
+      frequency_penalty: parseFloat(document.getElementById('setFreqPen').value),
+      presence_penalty: parseFloat(document.getElementById('setPresPen').value)
+    };
+    try {
+      const res = await fetch('/settings', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(JSON.stringify(updated));
+      addDebugStep('Settings Updated', updated, true);
+      closeSettings();
+    } catch (e) {
+      addDebugStep('Settings Save Error', String(e));
+    }
+  }
+
+  async function resetSettings() {
+    // revert to defaults (client-side values mirror server defaults)
+    document.getElementById('setTemp').value = 0.5;
+    document.getElementById('setMaxTok').value = 120;
+    document.getElementById('setHist').value = 6;
+    document.getElementById('setFullHist').checked = false;
+    document.getElementById('setFreqPen').value = 0.3;
+    document.getElementById('setPresPen').value = 0.1;
+  }
+
+  // Prompt Inspector
+  let lastPrompt = null;
+  let prevPrompt = null;
+
+  function showPromptModal(payload) {
+    const pre = document.getElementById('promptInspector');
+    pre.textContent = JSON.stringify(payload, null, 2);
+    document.getElementById('promptModal').style.display = 'block';
+  }
+
+  function closePromptModal() {
+    document.getElementById('promptModal').style.display = 'none';
+  }
+
+  document.getElementById('viewPromptBtn').addEventListener('click', () => {
+    if (lastPrompt) showPromptModal(lastPrompt);
+  });
+
+  document.getElementById('diffPromptBtn').addEventListener('click', () => {
+    if (!lastPrompt || !prevPrompt) return;
+    const diff = {
+      system_changed: lastPrompt.system !== prevPrompt.system,
+      roles_changed: JSON.stringify(lastPrompt.digest.roles) !== JSON.stringify(prevPrompt.digest.roles),
+      msg_count_changed: lastPrompt.digest.msg_count !== prevPrompt.digest.msg_count,
+      system_len: {prev: prevPrompt.digest.system_len, curr: lastPrompt.digest.system_len}
+    };
+    showPromptModal({diff, prev: prevPrompt.digest, curr: lastPrompt.digest});
+  });
+</script>
+
+<div id="settingsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); align-items:center; justify-content:center;">
+  <div style="background:#fff; border:1px solid var(--gray-200); border-radius:8px; width:360px; padding:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <div style="font-weight:600;">Settings</div>
+      <button class="debug-button" onclick="closeSettings()">Close</button>
+    </div>
+    <div style="display:grid; gap:10px;">
+      <label>Temperature
+        <input id="setTemp" type="number" min="0" max="2" step="0.1" style="width:100%; padding:6px; border:1px solid var(--gray-200); border-radius:6px;" />
+      </label>
+      <label>Max tokens
+        <input id="setMaxTok" type="number" min="1" max="4096" step="1" style="width:100%; padding:6px; border:1px solid var(--gray-200); border-radius:6px;" />
+      </label>
+      <label>History limit
+        <input id="setHist" type="number" min="0" max="50" step="1" style="width:100%; padding:6px; border:1px solid var(--gray-200); border-radius:6px;" />
+      </label>
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input id="setFullHist" type="checkbox" />
+        Use full history (ignore limit)
+      </label>
+      <label>Frequency penalty
+        <input id="setFreqPen" type="number" min="-2" max="2" step="0.1" style="width:100%; padding:6px; border:1px solid var(--gray-200); border-radius:6px;" />
+      </label>
+      <label>Presence penalty
+        <input id="setPresPen" type="number" min="-2" max="2" step="0.1" style="width:100%; padding:6px; border:1px solid var(--gray-200); border-radius:6px;" />
+      </label>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+      <button class="debug-button" onclick="resetSettings()">Reset</button>
+      <button class="debug-button" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="promptModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35);">
+  <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+              width: 70vw; max-height: 75vh; overflow:auto; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong>Prompt Inspector</strong>
+      <button onclick="closePromptModal()" class="debug-button">Close</button>
+    </div>
+    <pre id="promptInspector" style="white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px;"></pre>
+  </div>
+</div>
+
+</body>
+</html>

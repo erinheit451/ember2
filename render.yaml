@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ember-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: FT_MODEL
+        sync: false
+      - key: BASE_MODEL
+        value: gpt-4o-mini
+      - key: PORT
+        value: 10000
