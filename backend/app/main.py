@@ -1,6 +1,7 @@
 import os, time, json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
@@ -169,12 +170,45 @@ async def call_openai(messages: List[Dict[str, str]], model: str) -> Dict[str, A
         data = {"raw_text": await resp.aread()}
     return {"status_code": resp.status_code, "ms": dt_ms, "data": data}
 
+# ---------- Rate Limiting ----------
+async def check_rate_limit(user_id: str, limit: int = 50) -> tuple[bool, int]:
+    """
+    Check if user is within daily message limit.
+    Returns (is_allowed, messages_used_today)
+    """
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Count messages from today
+    from app.database.supabase_client import supabase
+    result = supabase.table("messages") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .eq("role", "user") \
+        .gte("created_at", today_start.isoformat()) \
+        .execute()
+
+    count = result.count or 0
+    return (count < limit, count)
+
 # ---------- Non-stream endpoint ----------
 @app.post("/chat", response_model=ChatOut)
 async def chat(body: ChatIn, request: Request):
     # Load recent turns to build the MEMORY card
     user_id   = body.user_id or "ui_user"
     thread_id = body.thread_id or "default"
+
+    # Rate limit check
+    is_allowed, messages_today = await check_rate_limit(user_id, limit=50)
+    if not is_allowed:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "rate_limit_exceeded",
+                "message": f"Daily limit of 50 messages reached. Used: {messages_today}",
+                "messages_today": messages_today,
+                "limit": 50
+            }
+        )
 
     tracer = DebugTracer(user_id=user_id, thread_id=thread_id)
 
@@ -301,6 +335,13 @@ async def chat_stream(body: ChatIn):
     # Load recent turns to build the MEMORY card
     user_id   = body.user_id or "ui_user"
     thread_id = body.thread_id or "default"
+
+    # Rate limit check
+    is_allowed, messages_today = await check_rate_limit(user_id, limit=50)
+    if not is_allowed:
+        async def error_gen():
+            yield f'data: {json.dumps({"type":"error","error":"Daily limit of 50 messages reached","messages_today":messages_today,"limit":50})}\n\n'
+        return StreamingResponse(error_gen(), media_type="text/event-stream")
 
     # init thread history if needed and append current user turn
     hist = THREADS.setdefault(thread_id, [])

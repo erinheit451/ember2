@@ -339,8 +339,14 @@
         body: JSON.stringify(requestBody)
       });
       if (!res.ok) {
-        addDebugStep("HTTP Error", { status: res.status, body: await res.text() });
-        addMessage(`Error: HTTP ${res.status}`, "ai");
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        if (res.status === 429) {
+          addMessage(`Rate limit: ${errorData.message}`, "ai");
+          addDebugStep("Rate Limit", errorData);
+        } else {
+          addMessage(`Error: HTTP ${res.status}`, "ai");
+          addDebugStep("HTTP Error", { status: res.status, body: errorData });
+        }
         return;
       }
 
@@ -391,6 +397,13 @@
               if (evt.debug?.prompt_stats) {
                 addDebugStep('Prompt Stats', evt.debug.prompt_stats, true);
               }
+
+            } else if (evt.type === "error") {
+              // Handle rate limit or other errors
+              addMessage(evt.error || "An error occurred", "ai");
+              addDebugStep("Error", evt);
+              aiNode?.remove(); // Remove empty streaming message
+              return;
 
             } else if (evt.type === "content") {
               if (firstTokenMs === null) firstTokenMs = Math.round(performance.now() - t0);
