@@ -97,8 +97,14 @@ app = FastAPI(title="Ember MVP", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:8000",
+        "https://ember-backend-8ja1.onrender.com",
+        "*"  # Keep this for now, remove in production
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Serve index.html from frontend directory

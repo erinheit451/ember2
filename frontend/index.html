@@ -116,6 +116,13 @@
       </svg>
     </button>
     <button class="header-button" title="Non-stream test" id="nonStreamBtn">NS</button>
+    <button class="header-button" title="Logout" onclick="logout()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </button>
   </div>
 </header>
 
@@ -186,6 +193,37 @@
 </footer>
 
 <script>
+  // ============ AUTH CHECK - MUST BE FIRST ============
+  function getSession() {
+    const sessionData = localStorage.getItem('ember_session');
+    if (!sessionData) return null;
+    try {
+      return JSON.parse(sessionData);
+    } catch (e) {
+      console.error('Invalid session data:', e);
+      localStorage.removeItem('ember_session');
+      return null;
+    }
+  }
+
+  function requireAuth() {
+    const session = getSession();
+    if (!session || !session.access_token || !session.user_id) {
+      window.location.href = 'login.html';
+      return null;
+    }
+    return session;
+  }
+
+  const SESSION = requireAuth();
+  if (!SESSION) throw new Error('Not authenticated');
+
+  function logout() {
+    localStorage.removeItem('ember_session');
+    window.location.href = 'login.html';
+  }
+  // ============ END AUTH CHECK ============
+
   const $ = s => document.querySelector(s);
   const messagesEl = $("#messages");
   const typingEl = $("#typing");
@@ -269,9 +307,9 @@
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Persistent session IDs - generate once and reuse
-  let currentUserId = crypto.randomUUID();
-  let currentThreadId = crypto.randomUUID();
+  // Use real authenticated user ID
+  let currentUserId = SESSION.user_id;
+  let currentThreadId = crypto.randomUUID(); // Generate new thread per session
 
   async function sendStream() {
     const text = inputEl.value.trim();
