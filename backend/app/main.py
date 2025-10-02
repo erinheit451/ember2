@@ -19,6 +19,12 @@ from app.services.momentum import generate_momentum
 from app.utils.debug import DebugTracer
 from app.config import OPENAI_API_KEY, FT_MODEL, BASE_MODEL, PORT
 
+# Goal tracking system imports
+from app.services.goal_tracker import get_goal, save_goal, update_goal_progress
+from app.services.goal_formation import form_conversation_goal
+from app.services.goal_progress import assess_goal_progress
+from app.services.goal_aware_prompt import build_goal_driven_prompt
+
 # Initialize database
 conversation.init_db()
 
@@ -357,7 +363,7 @@ async def chat_stream(body: ChatIn):
 
             tracer.event("request:received", {"text_preview": body.text[:120]})
 
-            # 1) Build prompt card
+            # 1) Load conversation history
             with tracer.span("build_card"):
                 # Respect live settings for history limit
                 limit = LIVE.history_limit if not LIVE.use_full_history else 50
@@ -369,13 +375,79 @@ async def chat_stream(body: ChatIn):
                     "limit": limit
                 })
 
-                system_content = prompt_builder.build_system_with_card(recent)
-                messages = [
-                    {"role": "system", "content": system_content},
-                    {"role": "user", "content": body.text}
-                ]
+            # 🎯 GOAL SYSTEM - Check if we have a goal for this thread
+            with tracer.span("goal_check"):
+                goal = await get_goal(thread_id)
+                debugbus.emit(turn_id, "goal", "goal_check", {
+                    "has_goal": goal is not None,
+                    "goal_text": goal.goal_text if goal else None
+                })
+
+            # Emit goal status to debug panel
+            if goal:
+                yield f'data: {json.dumps({"type":"debug_step","step":"🎯 Active Goal","data":goal.to_dict()})}\n\n'
+
+            # 🎯 If no goal exists, form one
+            if not goal:
+                with tracer.span("goal_formation"):
+                    debugbus.emit(turn_id, "goal", "forming_goal", {})
+                    goal = await form_conversation_goal(recent, body.text, thread_id)
+                    await save_goal(goal)
+                    tracer.attach("goal_formed", goal.to_dict())
+                    debugbus.emit(turn_id, "goal", "goal_formed", {
+                        "goal": goal.goal_text,
+                        "real_issue": goal.real_issue
+                    })
+
+                # Emit newly formed goal
+                yield f'data: {json.dumps({"type":"debug_step","step":"🎯 Goal Formed","data":goal.to_dict()})}\n\n'
+
+            # 🎯 Assess progress toward goal
+            with tracer.span("goal_progress"):
+                progress_data = await assess_goal_progress(goal, body.text)
+                tracer.attach("progress_assessment", progress_data)
+                debugbus.emit(turn_id, "goal", "progress_assessed", {
+                    "engagement": progress_data.get("engagement_type"),
+                    "progress": progress_data.get("progress"),
+                    "strategy": progress_data.get("next_strategy")
+                })
+
+                # Emit progress assessment
+                yield f'data: {json.dumps({"type":"debug_step","step":"📊 Goal Progress","data":progress_data})}\n\n'
+
+            # 🎯 Update goal with new progress and strategy
+            goal.progress = progress_data.get("progress", goal.progress)
+            goal.strategy = progress_data.get("next_strategy", goal.strategy)
+            goal.turns_pursuing += 1
+
+            await update_goal_progress(
+                thread_id=thread_id,
+                progress=goal.progress,
+                strategy=goal.strategy,
+                turns_pursuing=goal.turns_pursuing
+            )
+
+            # 🎯 Build goal-driven prompt
+            with tracer.span("build_goal_prompt"):
+                system_content = build_goal_driven_prompt(
+                    goal=goal,
+                    history=recent,
+                    strategy=goal.strategy
+                )
                 tracer.attach("system_prompt_preview", system_content[:800])
-                tracer.attach("messages_preview", messages)
+                debugbus.emit(turn_id, "prompt", "goal_prompt_built", {
+                    "strategy": goal.strategy,
+                    "prompt_len": len(system_content)
+                })
+
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": body.text}
+            ]
+            tracer.attach("messages_preview", messages)
+
+            # Emit prompt details
+            yield f'data: {json.dumps({"type":"debug_step","step":"💬 Goal-Driven Prompt","data":{{"strategy":goal.strategy,"preview":system_content[:500]}})}\n\n'
 
             model = FT_MODEL or BASE_MODEL
 

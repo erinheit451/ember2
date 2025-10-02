@@ -405,6 +405,10 @@
               aiNode?.remove(); // Remove empty streaming message
               return;
 
+            } else if (evt.type === "debug_step") {
+              // Handle goal tracking debug steps
+              addDebugStep(evt.step || "Debug Step", evt.data || {}, true);
+
             } else if (evt.type === "content") {
               if (firstTokenMs === null) firstTokenMs = Math.round(performance.now() - t0);
               chunkCount++;
