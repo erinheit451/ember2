@@ -447,7 +447,15 @@ async def chat_stream(body: ChatIn):
             tracer.attach("messages_preview", messages)
 
             # Emit prompt details
-            yield f'data: {json.dumps({"type":"debug_step","step":"💬 Goal-Driven Prompt","data":{{"strategy":goal.strategy,"preview":system_content[:500]}})}\n\n'
+            prompt_debug_data = {
+                "type": "debug_step",
+                "step": "💬 Goal-Driven Prompt",
+                "data": {
+                    "strategy": goal.strategy,
+                    "preview": system_content[:500]
+                }
+            }
+            yield f'data: {json.dumps(prompt_debug_data)}\n\n'
 
             model = FT_MODEL or BASE_MODEL
 
