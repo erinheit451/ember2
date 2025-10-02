@@ -440,27 +440,6 @@
                 addDebugStep('📄 Prompt Digest', evt.prompt.digest, true);
               }
 
-              // MOMENTUM — 2–3 Sparks
-              if (evt.debug?.momentum) {
-                const mom = evt.debug.momentum;
-                const ideas = (mom.ideas || []).map((it, idx) => {
-                  const spark = it.draft || it.seed || "(no spark)";
-                  const angle = it.angle ? ` [${it.angle}]` : "";
-                  const q = it.question ? `\n  question: ${it.question}` : "";
-                  return `#${idx + 1}${angle}\n  spark: ${spark}\n  why: ${it.why}${q}`;
-                }).join("\n\n");
-
-                const momDebug = {
-                  model: mom.debug?.model || 'unknown',
-                  ms: mom.debug?.ms || null,
-                  parse_error: mom.debug?.parse_error || null,
-                  raw_preview: mom.debug?.raw_output_preview || ''
-                };
-
-                addDebugStep('✨ Momentum (sparks)', ideas || '(none)');
-                addDebugStep('Momentum debug', momDebug, true);
-              }
-
               // Display full debug trace
               if (evt.debug?.attachments?.system_prompt_preview) {
                 addDebugStep('System Prompt (preview)', evt.debug.attachments.system_prompt_preview);

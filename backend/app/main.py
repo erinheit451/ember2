@@ -14,8 +14,6 @@ import uuid
 
 # Updated imports for new structure
 from app.services import conversation
-from app.services import prompt_builder
-from app.services.momentum import generate_momentum
 from app.utils.debug import DebugTracer
 from app.config import OPENAI_API_KEY, FT_MODEL, BASE_MODEL, PORT
 
@@ -225,7 +223,7 @@ async def chat(body: ChatIn, request: Request):
 
         tracer.event("request:received", {"text_preview": body.text[:120]})
 
-        # Build prompt card with live settings
+        # Load conversation history
         with tracer.span("build_card"):
             limit = LIVE.history_limit if not LIVE.use_full_history else 50
             recent = await conversation.get_recent(user_id, thread_id, limit=limit)
@@ -236,13 +234,63 @@ async def chat(body: ChatIn, request: Request):
                 "limit": limit
             })
 
-            system_content = prompt_builder.build_system_with_card(recent)
-            messages = [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": body.text}
-            ]
+        # Goal system integration
+        with tracer.span("goal_check"):
+            goal = await get_goal(thread_id)
+            debugbus.emit(turn_id, "goal", "goal_check", {
+                "has_goal": goal is not None,
+                "goal_text": goal.goal_text if goal else None
+            })
+
+        if not goal:
+            with tracer.span("goal_formation"):
+                debugbus.emit(turn_id, "goal", "forming_goal", {})
+                goal = await form_conversation_goal(recent, body.text, thread_id)
+                await save_goal(goal)
+                tracer.attach("goal_formed", goal.to_dict())
+                debugbus.emit(turn_id, "goal", "goal_formed", {
+                    "goal": goal.goal_text,
+                    "real_issue": goal.real_issue
+                })
+
+        with tracer.span("goal_progress"):
+            progress_data = await assess_goal_progress(goal, body.text)
+            tracer.attach("progress_assessment", progress_data)
+            debugbus.emit(turn_id, "goal", "progress_assessed", {
+                "engagement": progress_data.get("engagement_type"),
+                "progress": progress_data.get("progress"),
+                "strategy": progress_data.get("next_strategy")
+            })
+
+        goal.progress = progress_data.get("progress", goal.progress)
+        goal.strategy = progress_data.get("next_strategy", goal.strategy)
+        goal.turns_pursuing += 1
+
+        await update_goal_progress(
+            thread_id=thread_id,
+            progress=goal.progress,
+            strategy=goal.strategy,
+            turns_pursuing=goal.turns_pursuing
+        )
+
+        # Build goal-driven prompt
+        with tracer.span("build_goal_prompt"):
+            system_content = build_goal_driven_prompt(
+                goal=goal,
+                history=recent,
+                strategy=goal.strategy
+            )
             tracer.attach("system_prompt_preview", system_content[:800])
-            tracer.attach("messages_preview", messages)
+            debugbus.emit(turn_id, "prompt", "goal_prompt_built", {
+                "strategy": goal.strategy,
+                "prompt_len": len(system_content)
+            })
+
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": body.text}
+        ]
+        tracer.attach("messages_preview", messages)
 
         approx_tokens = estimate_tokens(messages)
         model = FT_MODEL or BASE_MODEL
@@ -526,25 +574,8 @@ async def chat_stream(body: ChatIn):
                 except Exception as _e:
                     print("[STORE] failed to save streaming turn:", _e)
 
-            # append assistant's full reply to history and call momentum
+            # append assistant's full reply to history
             hist.append({"role": "assistant", "content": full_reply})
-
-            # call momentum on the last N turns
-            try:
-                mom = generate_momentum(
-                    history=hist,                   # pass the whole thing (small at MVP)
-                    current_user_text=body.text,   # the message that triggered this turn
-                    max_turns=6,                    # keep it modest
-                    temperature=0.8,                # slightly higher for creativity
-                    max_tokens=220,
-                    api_key=OPENAI_API_KEY
-                )
-                momentum_block = {
-                    "ideas": mom.get("ideas", []),
-                    "debug": mom.get("debug", {}),
-                }
-            except Exception as e:
-                momentum_block = {"ideas": [], "debug": {"error": str(e)[:200]}}
 
             # Emit final debug bus event
             debugbus.emit(turn_id, "complete", "turn_end", {
@@ -570,7 +601,6 @@ async def chat_stream(body: ChatIn):
 
             # Full debug payload (trace + attachments + steps)
             full_debug = tracer.to_payload()
-            full_debug["momentum"] = momentum_block
             yield f'data: {json.dumps({"type":"complete","turn_id":turn_id,"final_text":full_reply,"meta":meta,"messages":messages,"prompt":prompt_payload,"debug":full_debug,"debug_events":debugbus.dump(turn_id)})}\n\n'
 
             debugbus.clear(turn_id)
