@@ -484,11 +484,11 @@ async def metrics():
 
 if __name__ == "__main__":
     import uvicorn
-    # Pass app object directly for proper module execution
+    # For production, pass app object directly
+    # For dev with reload, use "app.main:app" string
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=PORT,
-        reload=True,
         http="httptools"
     )
