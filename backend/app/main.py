@@ -116,6 +116,14 @@ def root():
         return JSONResponse(status_code=404, content={"detail": f"index.html not found at {path}"})
     return FileResponse(path)
 
+@app.get("/login.html", include_in_schema=False)
+def login_page():
+    """Serve login page"""
+    path = BASE_DIR.parent / "frontend" / "login.html"
+    if not path.exists():
+        return JSONResponse(status_code=404, content={"detail": f"login.html not found at {path}"})
+    return FileResponse(path)
+
 # Optional: serve any static assets (css/js) off /static/*
 # Mount the frontend directory as static files
 try:
