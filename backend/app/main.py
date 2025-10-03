@@ -616,6 +616,80 @@ async def chat_stream(body: ChatIn):
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
 
+@app.get("/debug/goal-system")
+async def debug_goal_system():
+    """Diagnostic endpoint to check goal tracking system"""
+    diagnostics = {
+        "imports": {},
+        "database": {},
+        "test_results": {},
+        "config": {}
+    }
+
+    # Check imports
+    try:
+        from app.services.goal_tracker import get_goal, save_goal
+        diagnostics["imports"]["goal_tracker"] = "✓ OK"
+    except Exception as e:
+        diagnostics["imports"]["goal_tracker"] = f"✗ FAILED: {str(e)}"
+
+    try:
+        from app.services.goal_formation import form_conversation_goal
+        diagnostics["imports"]["goal_formation"] = "✓ OK"
+    except Exception as e:
+        diagnostics["imports"]["goal_formation"] = f"✗ FAILED: {str(e)}"
+
+    try:
+        from app.services.goal_progress import assess_goal_progress
+        diagnostics["imports"]["goal_progress"] = "✓ OK"
+    except Exception as e:
+        diagnostics["imports"]["goal_progress"] = f"✗ FAILED: {str(e)}"
+
+    try:
+        from app.services.goal_aware_prompt import build_goal_driven_prompt
+        diagnostics["imports"]["goal_aware_prompt"] = "✓ OK"
+    except Exception as e:
+        diagnostics["imports"]["goal_aware_prompt"] = f"✗ FAILED: {str(e)}"
+
+    # Check database table
+    try:
+        from app.database.supabase_client import supabase
+        result = supabase.table("conversation_goals").select("*").limit(1).execute()
+        diagnostics["database"]["conversation_goals_table"] = "✓ OK - Table exists"
+        diagnostics["database"]["sample_count"] = len(result.data)
+    except Exception as e:
+        diagnostics["database"]["conversation_goals_table"] = f"✗ FAILED: {str(e)}"
+
+    # Test goal formation
+    try:
+        test_thread_id = f"test_{int(time.time())}"
+        test_history = [{"role": "user", "content": "I'm feeling anxious"}]
+        test_message = "I don't know what to do"
+
+        from app.services.goal_formation import form_conversation_goal
+        test_goal = await form_conversation_goal(test_history, test_message, test_thread_id)
+
+        diagnostics["test_results"]["goal_formation"] = {
+            "status": "✓ OK",
+            "goal_text": test_goal.goal_text[:100] + "...",
+            "strategy": test_goal.strategy
+        }
+    except Exception as e:
+        diagnostics["test_results"]["goal_formation"] = {
+            "status": f"✗ FAILED: {str(e)}",
+            "error_type": type(e).__name__
+        }
+
+    # Check API keys
+    diagnostics["config"] = {
+        "openai_key_set": bool(OPENAI_API_KEY),
+        "openai_key_preview": OPENAI_API_KEY[:10] + "..." if OPENAI_API_KEY else "NOT SET",
+        "base_model": BASE_MODEL,
+        "ft_model": FT_MODEL or "(not set)"
+    }
+
+    return diagnostics
+
 @app.get("/settings")
 async def get_settings():
     return LIVE.model_dump()
