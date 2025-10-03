@@ -425,7 +425,19 @@ async def chat_stream(body: ChatIn):
 
             # 🎯 GOAL SYSTEM - Check if we have a goal for this thread
             with tracer.span("goal_check"):
-                goal = await get_goal(thread_id)
+                print(f"[GOAL DEBUG] About to call get_goal for thread: {thread_id}")
+                try:
+                    goal = await get_goal(thread_id)
+                    print(f"[GOAL DEBUG] get_goal returned: {goal}")
+                    print(f"[GOAL DEBUG] goal is None: {goal is None}")
+                    if goal:
+                        print(f"[GOAL DEBUG] Goal details - text: {goal.goal_text[:50]}...")
+                except Exception as e:
+                    print(f"[GOAL ERROR] get_goal failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise  # Re-raise so we can see it
+
                 debugbus.emit(turn_id, "goal", "goal_check", {
                     "has_goal": goal is not None,
                     "goal_text": goal.goal_text if goal else None
@@ -437,10 +449,15 @@ async def chat_stream(body: ChatIn):
 
             # 🎯 If no goal exists, form one
             if not goal:
+                print(f"[GOAL DEBUG] No goal found, forming new goal...")
                 with tracer.span("goal_formation"):
                     debugbus.emit(turn_id, "goal", "forming_goal", {})
+                    print(f"[GOAL DEBUG] Calling form_conversation_goal...")
                     goal = await form_conversation_goal(recent, body.text, thread_id)
+                    print(f"[GOAL DEBUG] Goal formed! Text: {goal.goal_text[:50]}...")
+                    print(f"[GOAL DEBUG] Saving goal to database...")
                     await save_goal(goal)
+                    print(f"[GOAL DEBUG] Goal saved successfully")
                     tracer.attach("goal_formed", goal.to_dict())
                     debugbus.emit(turn_id, "goal", "goal_formed", {
                         "goal": goal.goal_text,
@@ -448,11 +465,14 @@ async def chat_stream(body: ChatIn):
                     })
 
                 # Emit newly formed goal
+                print(f"[GOAL DEBUG] Yielding debug_step event for Goal Formed")
                 yield f'data: {json.dumps({"type":"debug_step","step":"🎯 Goal Formed","data":goal.to_dict()})}\n\n'
 
             # 🎯 Assess progress toward goal
+            print(f"[GOAL DEBUG] Assessing goal progress...")
             with tracer.span("goal_progress"):
                 progress_data = await assess_goal_progress(goal, body.text)
+                print(f"[GOAL DEBUG] Progress assessed: {progress_data.get('progress')}% - {progress_data.get('engagement_type')}")
                 tracer.attach("progress_assessment", progress_data)
                 debugbus.emit(turn_id, "goal", "progress_assessed", {
                     "engagement": progress_data.get("engagement_type"),
@@ -461,6 +481,7 @@ async def chat_stream(body: ChatIn):
                 })
 
                 # Emit progress assessment
+                print(f"[GOAL DEBUG] Yielding debug_step event for Goal Progress")
                 yield f'data: {json.dumps({"type":"debug_step","step":"📊 Goal Progress","data":progress_data})}\n\n'
 
             # 🎯 Update goal with new progress and strategy
