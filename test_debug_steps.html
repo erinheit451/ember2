@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Steps Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+    .debug-step { margin: 10px 0; border: 1px solid #333; border-radius: 4px; }
+    .debug-step-header {
+      padding: 8px 12px;
+      background: #2a2a2a;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+    .debug-step-header:hover { background: #333; }
+    .debug-step-content { padding: 12px; background: #1a1a1a; }
+    .debug-step-content.collapsed { display: none; }
+    .debug-step-toggle { color: #888; }
+    pre { margin: 0; white-space: pre-wrap; color: #0f0; }
+    h1 { color: #0f0; }
+  </style>
+</head>
+<body>
+  <h1>Goal Tracking Debug Steps Test</h1>
+  <p>This tests the addDebugStep function with startExpanded parameter</p>
+  <div id="debugSteps"></div>
+
+  <script>
+    const $ = s => document.querySelector(s);
+
+    function addDebugStep(title, obj, startExpanded = false) {
+      const wrap = document.createElement("div");
+      wrap.className = "debug-step";
+      const isCollapsed = !startExpanded;
+      wrap.innerHTML = `
+        <div class="debug-step-header">
+          <h4>${title}</h4><span class="debug-step-toggle">${isCollapsed ? '▶' : '▼'}</span>
+        </div>
+        <div class="debug-step-content${isCollapsed ? ' collapsed' : ''}"><pre>${typeof obj === "string" ? obj : JSON.stringify(obj, null, 2)}</pre></div>
+      `;
+      const header = wrap.querySelector(".debug-step-header");
+      const content = wrap.querySelector(".debug-step-content");
+      const toggle = wrap.querySelector(".debug-step-toggle");
+      header.addEventListener("click", () => {
+        content.classList.toggle("collapsed");
+        toggle.textContent = content.classList.contains("collapsed") ? "▶" : "▼";
+      });
+      $("#debugSteps").appendChild(wrap);
+    }
+
+    // Test with goal data
+    addDebugStep("🎯 Goal Formed", {
+      "thread_id": "test-123",
+      "goal_text": "Help them see that their hesitation about getting a dog is rooted in fear of responsibility and loss",
+      "real_issue": "Fear of commitment and potential loss",
+      "insight_needed": "That fears can be addressed rather than avoided",
+      "why_avoiding": "Previous experience with loss or failure",
+      "strategy": "initial_exploration",
+      "progress": 0,
+      "turns_pursuing": 0
+    }, true);
+
+    addDebugStep("📊 Goal Progress", {
+      "engagement_type": "engage",
+      "progress": 30,
+      "progress_reasoning": "User opened up about their concerns, showing vulnerability",
+      "next_strategy": "deepen_current",
+      "goal_achieved": false
+    }, true);
+
+    addDebugStep("💬 Goal-Driven Prompt", {
+      "strategy": "deepen_current",
+      "preview": "You're Ember. You're not just responding - you have an agenda...\n\nGOAL: Help them see that their hesitation about getting a dog is rooted in fear of responsibility and loss\n\nREAL ISSUE: Fear of commitment and potential loss\n\nSTRATEGY: deepen_current\n\nThey're engaging with the goal. Go deeper on this thread.\nAsk the sharper question. Push further into this territory."
+    }, true);
+
+    addDebugStep("Regular Step (Collapsed)", {
+      "some": "data",
+      "that": "should",
+      "be": "collapsed"
+    }, false);
+
+    addDebugStep("Another Regular Step (Default Collapsed)", {
+      "more": "data"
+    });
+
+    console.log("✓ Test steps added!");
+    console.log("✓ Goal steps should be EXPANDED (▼)");
+    console.log("✓ Regular steps should be COLLAPSED (▶)");
+  </script>
+</body>
+</html>

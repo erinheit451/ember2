@@ -242,14 +242,15 @@
   function clearDebugPanel() {
     $("#debugSteps").innerHTML = "";
   }
-  function addDebugStep(title, obj) {
+  function addDebugStep(title, obj, startExpanded = false) {
     const wrap = document.createElement("div");
     wrap.className = "debug-step";
+    const isCollapsed = !startExpanded;
     wrap.innerHTML = `
       <div class="debug-step-header">
-        <h4>${title}</h4><span class="debug-step-toggle">▼</span>
+        <h4>${title}</h4><span class="debug-step-toggle">${isCollapsed ? '▶' : '▼'}</span>
       </div>
-      <div class="debug-step-content"><pre>${typeof obj === "string" ? obj : JSON.stringify(obj, null, 2)}</pre></div>
+      <div class="debug-step-content${isCollapsed ? ' collapsed' : ''}"><pre>${typeof obj === "string" ? obj : JSON.stringify(obj, null, 2)}</pre></div>
     `;
     const header = wrap.querySelector(".debug-step-header");
     const content = wrap.querySelector(".debug-step-content");
