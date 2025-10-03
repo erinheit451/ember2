@@ -413,9 +413,9 @@ async def chat_stream(body: ChatIn):
 
             # 1) Load conversation history
             with tracer.span("build_card"):
-                # Respect live settings for history limit
-                limit = LIVE.history_limit if not LIVE.use_full_history else 50
-                recent = await conversation.get_recent(user_id, thread_id, limit=limit)
+                # For goal formation, we need the FULL session context
+                # Use 100 messages (effectively unlimited for testing)
+                recent = await conversation.get_recent(user_id, thread_id, limit=100)
 
                 debugbus.emit(turn_id, "build", "building_card", {
                     "history_n": len(recent),
